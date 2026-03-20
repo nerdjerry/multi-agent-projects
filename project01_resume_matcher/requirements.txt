@@ -1,0 +1,11 @@
+langgraph
+langchain
+langchain-openai
+pymupdf
+beautifulsoup4
+requests
+pydantic
+fastapi
+uvicorn
+streamlit
+python-dotenv

@@ -5,8 +5,6 @@ Run:  streamlit run app.py
 """
 import os
 import sys
-import io
-import tempfile
 
 import fitz  # PyMuPDF
 import streamlit as st

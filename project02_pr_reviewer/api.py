@@ -73,7 +73,16 @@ async def review(request: ReviewRequest):
         cached = cache.get(key)
         if cached:
             logger.info("Cache hit for %s", request.pr_url)
-            return JSONResponse(json.loads(cached))
+            try:
+                cached_data = json.loads(cached)
+            except json.JSONDecodeError as exc:
+                logger.warning("Corrupted cache entry for key %s: %s; deleting and recomputing.", key, exc)
+                try:
+                    cache.delete(key)
+                except Exception as del_exc:
+                    logger.warning("Failed to delete corrupted cache key %s: %s", key, del_exc)
+            else:
+                return JSONResponse(cached_data)
 
     try:
         result = graph.invoke({"pr_url": request.pr_url})

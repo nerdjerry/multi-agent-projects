@@ -1,7 +1,7 @@
 """
 Project 01 — State definition (TypedDict).
 """
-from typing import TypedDict, Any
+from typing import TypedDict
 
 
 class ResumeMatcherState(TypedDict, total=False):

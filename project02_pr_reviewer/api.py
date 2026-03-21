@@ -59,7 +59,7 @@ def health():
 
 
 @app.post("/review")
-async def review(request: ReviewRequest):
+def review(request: ReviewRequest):
     if "github.com" not in request.pr_url or "/pull/" not in request.pr_url:
         raise HTTPException(
             status_code=400,

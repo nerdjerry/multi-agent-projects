@@ -37,8 +37,11 @@ async def get_brief(
     try:
         result = graph.invoke({"ticker": ticker})
     except Exception as exc:
-        logger.error("Graph execution failed for %s: %s", ticker, exc)
-        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {exc}") from exc
+        logger.exception("Graph execution failed for %s", ticker)
+        raise HTTPException(
+            status_code=500,
+            detail="Pipeline execution failed. Please try again later.",
+        ) from exc
 
     return JSONResponse({
         "ticker": ticker,

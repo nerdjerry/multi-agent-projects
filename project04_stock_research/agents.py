@@ -65,10 +65,21 @@ def _compute_ema(prices: np.ndarray, period: int) -> np.ndarray:
     ema = np.full(len(prices), np.nan)
     if len(prices) < period:
         return ema
-    ema[period - 1] = np.mean(prices[:period])
+    # Find the first index at which `period` consecutive finite values exist.
+    # This makes the function NaN-aware (e.g. when prices is a MACD line that
+    # starts with NaNs from the fast/slow EMA warmup).
+    start = -1
+    for i in range(len(prices) - period + 1):
+        if not np.any(np.isnan(prices[i : i + period])):
+            start = i + period - 1
+            ema[start] = np.mean(prices[i : i + period])
+            break
+    if start == -1:
+        return ema
     k = 2.0 / (period + 1)
-    for i in range(period, len(prices)):
-        ema[i] = prices[i] * k + ema[i - 1] * (1 - k)
+    for i in range(start + 1, len(prices)):
+        prev, cur = ema[i - 1], prices[i]
+        ema[i] = cur * k + prev * (1 - k) if not (np.isnan(prev) or np.isnan(cur)) else np.nan
     return ema
 
 

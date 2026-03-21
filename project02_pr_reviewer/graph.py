@@ -6,8 +6,10 @@ Project 02 — LangGraph fan-out / fan-in pipeline.
              → [Agent 3: Coverage]     ↗
 """
 import logging
+import os
 import re
 
+import requests
 from github import Github
 from langgraph.graph import StateGraph, END
 
@@ -20,6 +22,27 @@ from agents import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _fetch_full_diff(owner: str, repo_name: str, pr_number: int) -> str | None:
+    """Fetch the complete PR diff via GitHub's diff media type.
+
+    Returns the raw unified diff string, or None if the request fails so the
+    caller can fall back to assembling per-file patches.
+    """
+    token = os.getenv("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github.v3.diff"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    api_url = f"https://api.github.com/repos/{owner}/{repo_name}/pulls/{pr_number}"
+    try:
+        resp = requests.get(api_url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        diff = resp.text
+        return diff if diff.strip() else None
+    except Exception as exc:
+        logger.warning("Full diff fetch failed (%s); falling back to per-file patches.", exc)
+        return None
 
 
 def fetch_diff(state: PRReviewerState) -> dict:
@@ -39,19 +62,22 @@ def fetch_diff(state: PRReviewerState) -> dict:
     repo_name = match.group("repo")
     pr_number = int(match.group("number"))
 
-    import os
-    token = os.getenv("GITHUB_TOKEN")
-    gh = Github(token) if token else Github()
-    repo = gh.get_repo(f"{owner}/{repo_name}")
-    pr = repo.get_pull(pr_number)
+    # Prefer the full diff from the GitHub API (avoids truncation of large files)
+    diff = _fetch_full_diff(owner, repo_name, pr_number)
 
-    # Build a unified diff string from changed files
-    diff_parts = []
-    for f in pr.get_files():
-        patch = getattr(f, "patch", None)
-        if patch:
-            diff_parts.append(f"--- a/{f.filename}\n+++ b/{f.filename}\n{patch}")
-    diff = "\n\n".join(diff_parts)
+    if diff is None:
+        # Fall back to assembling diff from per-file patches via PyGithub
+        token = os.getenv("GITHUB_TOKEN")
+        gh = Github(token) if token else Github()
+        repo = gh.get_repo(f"{owner}/{repo_name}")
+        pr = repo.get_pull(pr_number)
+
+        diff_parts = []
+        for f in pr.get_files():
+            patch = getattr(f, "patch", None)
+            if patch:
+                diff_parts.append(f"--- a/{f.filename}\n+++ b/{f.filename}\n{patch}")
+        diff = "\n\n".join(diff_parts)
 
     if not diff.strip():
         diff = "(No text diff available — diff may be binary or empty.)"

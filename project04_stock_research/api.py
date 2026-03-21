@@ -27,7 +27,7 @@ def health():
 
 
 @app.get("/brief")
-async def get_brief(
+def get_brief(
     ticker: str = Query(..., description="Stock ticker symbol (e.g. MSFT, RELIANCE.NS)"),
 ):
     ticker = ticker.strip().upper()
